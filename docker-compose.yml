@@ -1,0 +1,175 @@
+version: '3.4'
+
+services:
+## ordermicroservice.api container
+  orders-microservice:
+    image: orders-microservice:latest
+    build:
+      context: .
+      dockerfile: OrderMicroservice.API/Dockerfile
+    environment:
+     - ASPNETCORE_ENVIRONMENT=Development
+     - MONGODB_HOST=Mongodb-container
+     - MONGODB_PORT=27017
+     - MONGODB_DATABASE=OrdersDatabase
+     - UserMicroserviceName=apigateway
+     - UserMicroservicePort=8080
+     - ProductsMicroserviceName=apigateway
+     - ProductsMicroservicePort=8080
+     - Redis_Hostname=redis-container
+     - Redis_Port=6379
+     - RabbitMQ_HostName=rabbitmq
+     - RabbitMQ_Port=5672
+     - RabbitMQ_UserName=guest
+     - RabbitMQ_Password=guest
+     - RabbitMQ_Products_Exchange=product.exchange
+
+
+    ports:
+     - "7000:8080"
+    networks:
+     - orders-mongo-network
+     - ecommerce-network
+    depends_on:
+     - Mongodb-container
+     - rabbitmq
+ 
+## Mongodb container
+  Mongodb-container:
+   image: mongo:latest
+   ports:
+    - "27017:27017"
+   volumes:
+    - ../mongodb-init:/docker-entrypoint-initdb.d
+   networks:
+    - orders-mongo-network
+
+## Create Products Microserivce container
+  products-microservice:
+   image: ammar2020/ecommerce-products-microservice
+   environment:
+    - ASPNETCORE_HTTP_PORTS=8080
+    - ASPNETCORE_ENVIRONMENT=Development
+    - MYSQL_HOST=mysql-container
+    - MYSQL_PORT=3306 ##container port not host port
+    - MYSQL_DATABASE=ecommerceproductsdatabase
+    - MYSQL_USER=root
+    - MYSQL_PASSWORD=admin
+    - RabbitMQ_HostName=rabbitmq
+    - RabbitMQ_Port=5672
+    - RabbitMQ_UserName=guest
+    - RabbitMQ_Password=guest 
+    - RabbitMQ_Products_Exchange=product.exchange
+   ports:
+    - "6000:8080"
+   networks:
+    - products-mysql-network
+    - ecommerce-network
+   depends_on:
+    - mysql-container
+## create mysql container
+  mysql-container:
+   image: mysql:9.1.0
+   environment:
+    - MYSQL_ROOT_PASSWORD=admin
+   ports:
+    - "3307:3306" ## dont use 3306 because its already in use by mysql local
+   volumes:
+    - ../mysql-init:/docker-entrypoint-initdb.d
+   networks:
+    - products-mysql-network
+
+##create usermicroservice container
+  user-microservice:
+   image: ammar2020/ecommerce-users-microservice
+   environment:
+    - ASPNETCORE_HTTP_PORTS=8080
+    - ASPNETCORE_ENVIRONMENT=Development
+    - POSTGRES_HOST=postgres-container
+    - POSTGRES_PORT=5432
+    - POSTGRES_DATABASE=eCommerceUsers
+    - POSTGRES_USER=postgres
+    - POSTGRES_PASSWORD=admin
+    - SQL_HOST=sql-container
+    - SQL_PORT=1433
+    - SQL_USER=sa
+    - SQL_PASSWORD=181995Am@
+    - SQL_DATABASE=UsersDB
+   ports:
+    - "5000:9090"
+   networks:
+    - users-postgres-network
+    - ecommerce-network
+   depends_on:
+    - postgres-container
+    - sql-container
+
+## create postgres container:
+  postgres-container:
+   image: postgres:latest
+   environment:
+    - POSTGRES_USER=postgres
+    - POSTGRES_PASSWORD=admin
+    - POSTGRES_DB=eCommerceUsers
+   ports:
+    - "5433:5432" ## dont use 5432 because its already in use by postgres local
+   volumes:
+    - ../postgres-init:/docker-entrypoint-initdb.d
+   networks:
+    - users-postgres-network    
+
+## create redis container
+  redis-container:
+   image: redis:latest
+   ports: 
+    - "6379:6379"  
+   volumes:
+    - ../redis-cache:/data
+   networks:
+    - ecommerce-network
+## create api gateway
+  apigateway:
+   image: apigateway:latest
+   build:
+    context: .
+    dockerfile: ApiGetway/Dockerfile
+   ports:
+    - "4000:8080"
+   networks:
+    - ecommerce-network
+
+## create rabbitMQ container
+  rabbitmq:
+   image: rabbitmq:3.13-management
+   environment:
+    - RABBITMQ_DEFAULT_USER=guest
+    - RABBITMQ_DEFAULT_PASS=guest
+   ports:
+    - "5672:5672"
+    - "15672:15672"
+   networks:
+    - ecommerce-network
+
+ ## create sql container:
+  sql-container:
+   image: "mcr.microsoft.com/mssql/server:2019-latest"
+   environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=181995Am@
+   ports:
+      - "1433:1433"
+   volumes:
+    - ../sql-init:/docker-entrypoint-initdb.d
+   networks:
+    - users-postgres-network    
+
+## create network
+networks:
+ orders-mongo-network:
+  driver: bridge
+ products-mysql-network:
+  driver: bridge
+ users-postgres-network:
+  driver: bridge
+ ecommerce-network:
+  driver: bridge
