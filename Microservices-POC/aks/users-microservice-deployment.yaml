@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-microservice-deployment
+  namespace: ecommerce-namespace
+  labels:
+    app: user-microservice
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: user-microservice
+  template:
+    metadata:
+      labels:
+        app: user-microservice
+    spec:
+      containers:
+      - name: user-microservice
+        image: ammar2020/ecommerce-users-microservice:latest
+        ports:
+        - containerPort: 9090
+        env:
+        - name: ASPNETCORE_ENVIRONMENT
+          value: Development
+        - name: POSTGRES_HOST
+          value: postgres
+        - name: POSTGRES_PORT
+          value: "5432"
+        - name: POSTGRES_DATABASE
+          value: eCommerceUsers
+        - name: POSTGRES_USER
+          value: postgres
+        - name: SQL_HOST
+          value: sql
+        - name: SQL_PORT
+          value: "1433"
+        - name: SQL_USER
+          value: sa
+        - name: SQL_PASSWORD
+          value: 181995Am@
+        - name: SQL_DATABASE
+          value: UsersDB

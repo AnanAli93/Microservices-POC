@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: apigateway-deployment
+  namespace: ecommerce-namespace
+  labels:
+    app: apigateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: apigateway
+  template:
+    metadata:
+      labels:
+        app: apigateway
+    spec:
+      containers:
+      - name: apigateway
+        # image: amtecommerceregistry.azurecr.io/apigateway:latest
+        image: ammar2020/apigateway:latest
+        ports:
+        - containerPort: 8080

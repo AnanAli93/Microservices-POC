@@ -1,0 +1,5 @@
+IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = N'UsersDB')
+BEGIN
+    CREATE DATABASE UsersDB;
+END
+GO

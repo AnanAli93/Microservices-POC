@@ -1,0 +1,174 @@
+services:
+  mongodb-container:
+   image: ecommerce-mongodb:latest
+   build: 
+     context: /mongodb
+     dockerfile: /Dockerfile
+   ports:
+    - "27017:27017"
+   networks:
+    - orders-mongodb-network
+
+  mysql-container:
+   image: ecommerce-mysql:latest
+   build: 
+     context: /mysql
+     dockerfile: /Dockerfile
+   environment:
+    - MYSQL_ROOT_PASSWORD=admin
+   ports:
+    - "3307:3306"
+   networks:
+    - products-mysql-network
+
+## create sql container:
+  sql-container:
+   image: ecommerce-sql:latest
+   build: 
+     context: /sql
+     dockerfile: /Dockerfile
+   environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=181995Am@
+   ports:
+      - "1433:1433"
+   networks:
+    - users-postgres-network
+
+  postgres-container:
+   image: ecommerce-postgres:latest
+   build: 
+     context: /postgres
+     dockerfile: /Dockerfile
+   environment:
+    - POSTGRES_USER=postgres
+    - POSTGRES_PASSWORD=admin
+    - POSTGRES_DB=eCommerceUsers
+   ports:
+    - "5432:5432"
+   networks:
+    - users-postgres-network
+
+  redis:
+   image: redis:latest
+   ports:
+    - "6379:6379"
+   networks:
+    - ecommerce-network
+
+  rabbitmq:
+    image: rabbitmq:3.8-management
+    ports:
+     - "5672:5672"
+     - "15672:15672"
+    environment:
+     - RABBITMQ_DEFAULT_USER=guest
+     - RABBITMQ_DEFAULT_PASS=guest
+    networks:
+     - ecommerce-network
+
+  apigateway:
+    image: apigateway:latest
+    build:
+      context: /eCommerceSolution.OrderMicroservice
+      dockerfile: ApiGetway/Dockerfile
+    ports:
+     - "5000:8080"
+    networks:
+     - ecommerce-network
+    depends_on:
+     - orders-microservice
+     - products-microservice
+     - user-microservice
+
+  user-microservice:
+   image: user-microservice:latest
+   build: 
+    context: /eCommerceSolution.UsersService
+    dockerfile: /eCommerce.API/Dockerfile
+   environment:
+    - ASPNETCORE_ENVIRONMENT=Development
+    - POSTGRES_HOST=postgres-container
+    - POSTGRES_PORT=5432
+    - POSTGRES_DATABASE=eCommerceUsers
+    - POSTGRES_USER=postgres
+    - POSTGRES_PASSWORD=admin
+    - RabbitMQ_HostName=rabbitmq
+    - RabbitMQ_Port=5672
+    - RabbitMQ_UserName=guest
+    - RabbitMQ_Password=guest
+    - RabbitMQ_Users_Exchange=users.exchange
+    - SQL_HOST=sql-container
+    - SQL_PORT=1433
+    - SQL_USER=sa
+    - SQL_PASSWORD=181995Am@
+    - SQL_DATABASE=UsersDB
+   networks:
+    - users-postgres-network
+    - ecommerce-network
+   depends_on: 
+    - postgres-container
+    - sql-container
+
+  products-microservice:
+   image: products-microservice:latest
+   build: 
+    context: /eCommerceSolution.ProductsMicroService
+    dockerfile: /ProductsMicroService.API/Dockerfile
+   environment:
+    - ASPNETCORE_ENVIRONMENT=Development
+    - MYSQL_HOST=mysql-container
+    - MYSQL_PORT=3306
+    - MYSQL_DATABASE=ecommerceproductsdatabase
+    - MYSQL_USER=root
+    - MYSQL_PASSWORD=admin
+    - RabbitMQ_HostName=rabbitmq
+    - RabbitMQ_Port=5672
+    - RabbitMQ_UserName=guest
+    - RabbitMQ_Password=guest
+    - RabbitMQ_Products_Exchange=products.exchange
+   networks:
+    - products-mysql-network
+    - ecommerce-network
+   depends_on: 
+    - mysql-container
+
+  orders-microservice:
+    image: orders-microservice:latest
+    build: 
+     context: /eCommerceSolution.OrderMicroservice
+     dockerfile: /OrderMicroservice.API/Dockerfile
+    environment:
+     - ASPNETCORE_ENVIRONMENT=Development
+     - MONGODB_HOST=mongodb-container
+     - MONGODB_PORT=27017
+     - MONGODB_DATABASE=OrdersDatabase
+     - UserMicroservicePort=8080
+     - UserMicroserviceName=apigateway
+     - ProductsMicroservicePort=8080
+     - ProductsMicroserviceName=apigateway
+     - Redis_Hostname=redis
+     - Redis_Port=6379
+     - RabbitMQ_HostName=rabbitmq
+     - RabbitMQ_Port=5672
+     - RabbitMQ_UserName=guest
+     - RabbitMQ_Password=guest
+     - RabbitMQ_Products_Exchange=products.exchange
+     - RabbitMQ_Users_Exchange=users.exchange
+    networks:
+     - orders-mongodb-network
+     - ecommerce-network
+    depends_on: 
+     - mongodb-container
+     - rabbitmq
+     - redis
+
+networks:
+ ecommerce-network:
+  driver: bridge
+ users-postgres-network:
+  driver: bridge
+ products-mysql-network:
+  driver: bridge
+ orders-mongodb-network:
+  driver: bridge

@@ -1,0 +1,25 @@
+﻿apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demowebapp-deployment
+  labels:
+    app: demo-webapi-app
+    environment: development
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: demowebapp
+  template:
+    metadata:
+      labels:
+        app: demowebapp
+    spec:
+        containers:
+            - name: demowebapp-container
+              image: amtecommerceregistry.azurecr.io/demowebapp:latest
+              ports:
+               - containerPort: 80
+              env:
+               - name: ASPNETCORE_ENVIRONMENT
+                 value: Development

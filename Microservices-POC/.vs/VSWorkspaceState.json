@@ -1,0 +1,13 @@
+{
+  "ExpandedNodes": [
+    "",
+    "\\aks",
+    "\\eCommerceSolution.OrderMicroservice",
+    "\\eCommerceSolution.OrderMicroservice\\ApiGetway",
+    "\\eCommerceSolution.OrderMicroservice\\BusinessLogicLayer",
+    "\\eCommerceSolution.OrderMicroservice\\BusinessLogicLayer\\RabbitMQ",
+    "\\eCommerceSolution.UsersService"
+  ],
+  "SelectedNode": "\\aks\\users-microservice-deployment.yaml",
+  "PreviewInSolutionExplorer": false
+}
