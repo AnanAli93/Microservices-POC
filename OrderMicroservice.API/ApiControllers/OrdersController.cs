@@ -3,6 +3,7 @@ using eCommerce.OrdersMicroservice.BusinessLogicLayer.ServiceContracts;
 using eCommerce.OrdersMicroservice.DataAccessLayer.Entities;
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Driver;
+using Serilog;
 
 
 namespace OrdersMicroservice.API.ApiControllers;
@@ -12,10 +13,12 @@ namespace OrdersMicroservice.API.ApiControllers;
 public class OrdersController : ControllerBase
 {
     private readonly IOrdersService _ordersService;
+    private readonly Serilog.ILogger _logger;
 
-    public OrdersController(IOrdersService ordersService)
+    public OrdersController(IOrdersService ordersService, Serilog.ILogger logger)
     {
         _ordersService = ordersService;
+        _logger = logger;
     }
 
 
@@ -23,6 +26,9 @@ public class OrdersController : ControllerBase
     [HttpGet]
     public async Task<IEnumerable<OrderResponse?>> Get()
     {
+        _logger.Debug("Orders microservic, test serilog");
+        _logger.Error("Orders microservic, test error serilog");
+
         List<OrderResponse?> orders = await _ordersService.GetOrders();
         return orders;
     }

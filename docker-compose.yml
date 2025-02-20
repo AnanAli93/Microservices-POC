@@ -1,20 +1,21 @@
 services:
-  elasticsearch: #(for storing logs and traces) Defines a service named elasticsearch.
-    image: docker.elastic.co/elasticsearch/elasticsearch:7.10.1 #Uses the Elasticsearch 7.10.1 image from Elastic's official Docker registry
-    container_name: elasticsearch #Assigns a custom container name (elasticsearch) for easy reference.
-    environment: #Sets an environment variable that configures Elasticsearch to run in single-node mode (instead of clustering with other nodes).#This is necessary for local setups where you don't need a multi-node Elasticsearch cluster.
-      - discovery.type=single-node
-    healthcheck: #Defines a health check to verify if Elasticsearch is running properly:Runs curl -f http://localhost:9200 inside the container.Executes the test every 30 seconds.Retries 5 times before considering the container unhealthy.
-      test: ["CMD", "curl", "-f", "http://localhost:9200"]
-      interval: 30s
-      retries: 5
-    ports:
-      - "9200:9200" #Maps port 9200 of the container to port 9200 on the host machine. This allows access to Elasticsearch via http://localhost:9200.
-    networks:
-      - ecommerce-network
-
+  elasticsearch:
+   image: docker.elastic.co/elasticsearch/elasticsearch:8.17.2
+   container_name: elasticsearch
+   environment:
+     - discovery.type=single-node
+     - xpack.security.enabled=false  # Disable security for easier local setup
+     - ES_JAVA_OPTS=-Xms512m -Xmx512m  # Reduce heap usage if low on memory
+   healthcheck:
+     test: ["CMD", "curl", "-f", "http://localhost:9200/_cluster/health"]
+     interval: 30s
+     retries: 10
+   ports:
+     - "9200:9200"
+   networks:
+     - ecommerce-network
   kibana: #(for visualizing logs and traces)
-    image: docker.elastic.co/kibana/kibana:7.10.1  #Uses the Kibana 7.10.1 image from Elastic's official Docker registry.
+    image: docker.elastic.co/kibana/kibana:8.17.2  #Uses the Kibana 7.10.1 image from Elastic's official Docker registry.
     container_name: kibana
     depends_on: #Ensures Kibana starts only after Elasticsearch is up and running.
       - elasticsearch  # Kibana depends on Elasticsearch
@@ -40,7 +41,8 @@ services:
       - "4317:4317"    # OpenTelemetry gRPC
       - "4318:4318"    # OpenTelemetry HTTP
     depends_on:
-      - elasticsearch
+     elasticsearch:
+      condition: service_healthy #make sure elasticseach is started 
     networks:
       - ecommerce-network
   ## Consul Service Discovery
@@ -85,10 +87,16 @@ services:
       - orders-mongo-network
       - ecommerce-network
     depends_on:
-      - Mongodb-container
-      - rabbitmq
-      - consul
-      - jaeger
+     elasticsearch:
+      condition: service_healthy
+     Mongodb-container:
+      condition: service_started
+     rabbitmq:
+      condition: service_started
+     consul:
+      condition: service_started
+     jaeger:
+      condition: service_started
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 30s
@@ -300,203 +308,3 @@ volumes:
   consul-data:
     driver: local
 
-# version: '3.4'
-
-# services:
-#  ## Consul Service Discovery
-#   consul:
-#    image: consul:1.15.0
-#    ports:
-#     - "8500:8500"
-#    networks:
-#     - ecommerce-network 
-#    volumes:
-#     - consul-data:/consul/data
-#    command: "consul agent -dev -client=0.0.0.0"
-#    healthcheck:
-#     test: ["CMD", "consul", "info"]
-#     interval: 30s
-#     retries: 3
-
-# ## ordermicroservice.api container
-#   orders-microservice:
-#     image: orders-microservice:latest
-#     build:
-#       context: .
-#       dockerfile: OrderMicroservice.API/Dockerfile
-#     environment:
-#      - ASPNETCORE_ENVIRONMENT=Development
-#      - MONGODB_HOST=Mongodb-container
-#      - MONGODB_PORT=27017
-#      - MONGODB_DATABASE=OrdersDatabase
-#      - UserMicroserviceName=apigateway
-#      - UserMicroservicePort=8080
-#      - ProductsMicroserviceName=apigateway
-#      - ProductsMicroservicePort=8080
-#      - Redis_Hostname=redis-container
-#      - Redis_Port=6379
-#      - RabbitMQ_HostName=rabbitmq
-#      - RabbitMQ_Port=5672
-#      - RabbitMQ_UserName=guest
-#      - RabbitMQ_Password=guest
-#      - RabbitMQ_Products_Exchange=product.exchange
-#     ports:
-#      - "7000:8080"
-#     networks:
-#      - orders-mongo-network
-#      - ecommerce-network
-#     depends_on:
-#      - Mongodb-container
-#      - rabbitmq
-#      - consul  # Ensure Consul is available before starting the API Gateway
-  
- 
-# ## Mongodb container
-#   Mongodb-container:
-#    image: mongo:latest
-#    ports:
-#     - "27017:27017"
-#    volumes:
-#     - ../mongodb-init:/docker-entrypoint-initdb.d
-#    networks:
-#     - orders-mongo-network
-
-# ## Create Products Microserivce container
-#   products-microservice:
-#    image: ammar2020/ecommerce-products-microservice
-#    container_name: products-microservice
-#    environment:
-#     - ASPNETCORE_HTTP_PORTS=8080
-#     - ASPNETCORE_ENVIRONMENT=Development
-#     - MYSQL_HOST=mysql-container
-#     - MYSQL_PORT=3306 ##container port not host port
-#     - MYSQL_DATABASE=ecommerceproductsdatabase
-#     - MYSQL_USER=root
-#     - MYSQL_PASSWORD=admin
-#     - RabbitMQ_HostName=rabbitmq
-#     - RabbitMQ_Port=5672
-#     - RabbitMQ_UserName=guest
-#     - RabbitMQ_Password=guest 
-#     - RabbitMQ_Products_Exchange=product.exchange
-#    ports:
-#     - "8080:8080"
-#    networks:
-#     - products-mysql-network
-#     - ecommerce-network
-#    depends_on:
-#     - mysql-container
-#     - consul  # Ensure Consul is available before starting the API Gateway
-  
-# ## create mysql container
-#   mysql-container:
-#    image: mysql:9.1.0
-#    environment:
-#     - MYSQL_ROOT_PASSWORD=admin
-#    ports:
-#     - "3307:3306" ## dont use 3306 because its already in use by mysql local
-#    volumes:
-#     - ../mysql-init:/docker-entrypoint-initdb.d
-#    networks:
-#     - products-mysql-network
-
-# ##create usermicroservice container
-#   user-microservice:
-#    image: ammar2020/ecommerce-users-microservice
-#    environment:
-#     - ASPNETCORE_HTTP_PORTS=8080
-#     - ASPNETCORE_ENVIRONMENT=Development
-#     - POSTGRES_HOST=postgres-container
-#     - POSTGRES_PORT=5432
-#     - POSTGRES_DATABASE=eCommerceUsers
-#     - POSTGRES_USER=postgres
-#     - POSTGRES_PASSWORD=admin
-#     - SQL_HOST=sql-container
-#     - SQL_PORT=1433
-#     - SQL_USER=sa
-#     - SQL_PASSWORD=181995Am@
-#     - SQL_DATABASE=UsersDB
-#    ports:
-#     - "9090:9090"
-#    networks:
-#     - users-postgres-network
-#     - ecommerce-network
-#    depends_on:
-#     - postgres-container
-#     - sql-container
-#     - consul  # Ensure Consul is available before starting the API Gateway
-   
-# ## create postgres container:
-#   postgres-container:
-#    image: postgres:latest
-#    environment:
-#     - POSTGRES_USER=postgres
-#     - POSTGRES_PASSWORD=admin
-#     - POSTGRES_DB=eCommerceUsers
-#    ports:
-#     - "5433:5432" ## dont use 5432 because its already in use by postgres local
-#    volumes:
-#     - ../postgres-init:/docker-entrypoint-initdb.d
-#    networks:
-#     - users-postgres-network    
-
-# ## create redis container
-#   redis-container:
-#    image: redis:latest
-#    ports: 
-#     - "6379:6379"  
-#    volumes:
-#     - ../redis-cache:/data
-#    networks:
-#     - ecommerce-network
-# ## create api gateway
-#   apigateway:
-#    image: apigateway:latest
-#    build:
-#     context: .
-#     dockerfile: ApiGetway/Dockerfile
-#    ports:
-#     - "4000:8080"
-#    networks:
-#     - ecommerce-network
-#    depends_on:
-#     - consul
-
-# ## create rabbitMQ container
-#   rabbitmq:
-#    image: rabbitmq:3.13-management
-#    environment:
-#     - RABBITMQ_DEFAULT_USER=guest
-#     - RABBITMQ_DEFAULT_PASS=guest
-#    ports:
-#     - "5672:5672"
-#     - "15672:15672"
-#    networks:
-#     - ecommerce-network
-
-#  ## create sql container:
-#   sql-container:
-#    image: "mcr.microsoft.com/mssql/server:2019-latest"
-#    environment:
-#       - ACCEPT_EULA=Y
-#       - SA_PASSWORD=181995Am@
-#    ports:
-#       - "1433:1433"
-#    volumes:
-#     - ../sql-init:/docker-entrypoint-initdb.d
-#    networks:
-#     - users-postgres-network    
-
-# ## create network
-# networks:
-#   orders-mongo-network:
-#     driver: bridge
-#   products-mysql-network:
-#     driver: bridge
-#   users-postgres-network:
-#     driver: bridge
-#   ecommerce-network:
-#     driver: bridge
-
-# volumes:
-#   consul-data:
-#     driver: local
